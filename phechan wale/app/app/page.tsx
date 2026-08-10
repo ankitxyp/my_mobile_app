@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import Link from "next/link";
 import {
   Search,
   ChevronDown,
@@ -202,7 +203,7 @@ function PremiumHeader() {
         <div className="max-w-[1400px] mx-auto px-6 xl:px-8">
           <div className="flex items-center gap-6 h-[64px]">
             {/* Logo */}
-            <a href="/" className="flex-shrink-0 flex items-center gap-2.5 group">
+            <Link href="/" className="flex-shrink-0 flex items-center gap-2.5 group">
               <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-sm group-hover:bg-white/30 transition-colors">
                 <span className="text-white text-lg font-black">प</span>
               </div>
@@ -211,7 +212,7 @@ function PremiumHeader() {
                 <span className="text-lg font-extrabold text-amber-200">Wale</span>
                 <p className="text-[8px] font-semibold text-white/60 tracking-widest uppercase">Apne Logon Se</p>
               </div>
-            </a>
+            </Link>
 
             {/* Location Pill */}
             <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/10">
@@ -281,10 +282,10 @@ function PremiumHeader() {
                 <ShoppingCart className="w-5 h-5" />
                 <span className="text-xs font-semibold hidden xl:inline">Cart</span>
               </button>
-              <button className="flex items-center gap-2 ml-1 px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 transition-colors text-white border border-white/10">
+              <Link href="/login" className="flex items-center gap-2 ml-1 px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 transition-colors text-white border border-white/10">
                 <User className="w-5 h-5" />
                 <span className="text-xs font-semibold hidden xl:inline">Login</span>
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -605,11 +606,11 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           <span className="text-[10px] text-text-muted line-through">₹{product.onlinePrice}</span>
         </div>
 
-        <button className="w-full mt-2.5 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold
+        <Link href="/checkout" className="w-full mt-2.5 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold
           bg-primary text-white hover:bg-primary-hover transition-colors active:scale-95 shadow-sm">
           <IndianRupee className="w-3 h-3" />
           Reserve ₹10
-        </button>
+        </Link>
       </div>
     </div>
   );
@@ -668,10 +669,10 @@ function ServiceCard({ sp, index }: { sp: ServiceProvider; index: number }) {
 
       {/* Actions */}
       <div className="flex gap-2">
-        <button className="flex-1 py-2.5 rounded-xl bg-accent text-white text-xs font-bold
+        <Link href="/fix-problem" className="flex-1 py-2.5 rounded-xl bg-accent text-white text-xs font-bold text-center
           hover:bg-accent-hover transition-colors active:scale-95 shadow-sm">
           Get Deal
-        </button>
+        </Link>
         <button className="w-10 rounded-xl border border-border flex items-center justify-center
           hover:bg-surface hover:border-accent/40 transition-all active:scale-95" title="Call">
           <Phone className="w-3.5 h-3.5 text-text-muted" />
@@ -855,11 +856,11 @@ function SOSBanner() {
               </p>
             </div>
           </div>
-          <button className="flex-shrink-0 flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-red-600 text-sm font-bold
+          <Link href="/fix-problem" className="flex-shrink-0 flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-red-600 text-sm font-bold
             hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95 shadow-md">
             <Phone className="w-4 h-4" />
             Call for Help Now
-          </button>
+          </Link>
         </div>
       </div>
     </section>
@@ -913,11 +914,11 @@ function HowItWorks() {
 function MobileBottomNav() {
   const [activeTab, setActiveTab] = useState("Home");
   const tabs = [
-    { icon: Home, label: "Home" },
-    { icon: ShoppingCart, label: "Reserve" },
-    { icon: Wrench, label: "Fix" },
-    { icon: Leaf, label: "Farm" },
-    { icon: User, label: "Profile" },
+    { icon: Home, label: "Home", href: "/" },
+    { icon: ShoppingCart, label: "Reserve", href: "/checkout" },
+    { icon: Wrench, label: "Fix", href: "/fix-problem" },
+    { icon: Leaf, label: "Farm", href: "/" },
+    { icon: User, label: "Profile", href: "/login" },
   ];
 
   return (
@@ -927,15 +928,16 @@ function MobileBottomNav() {
           const Icon = tab.icon;
           const isActive = tab.label === activeTab;
           return (
-            <button
+            <Link
               key={tab.label}
+              href={tab.href}
               onClick={() => setActiveTab(tab.label)}
               className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-2xl transition-all duration-200
                 ${isActive ? "text-primary bg-primary-ghost" : "text-text-muted hover:text-text-secondary active:scale-95"}`}
             >
               <Icon className={`w-5 h-5 ${isActive ? "stroke-[2.5]" : ""}`} />
               <span className={`text-[10px] leading-tight ${isActive ? "font-bold" : "font-medium"}`}>{tab.label}</span>
-            </button>
+            </Link>
           );
         })}
       </div>
@@ -972,7 +974,7 @@ function Footer() {
             <h4 className="text-sm font-bold text-white mb-4 uppercase tracking-wider">Platform</h4>
             <ul className="space-y-2.5 text-sm text-stone-400">
               {["How it Works", "For Shop Owners", "For Mechanics", "For Farmers", "Agent Dashboard"].map((l) => (
-                <li key={l}><a href={l === "Agent Dashboard" ? "/agent-dashboard" : "#"} className="hover:text-primary-light transition-colors">{l}</a></li>
+                <li key={l}><Link href={l === "Agent Dashboard" ? "/agent-dashboard" : l === "For Shop Owners" ? "/vendor-dashboard" : "#"} className="hover:text-primary-light transition-colors">{l}</Link></li>
               ))}
             </ul>
           </div>
@@ -980,7 +982,7 @@ function Footer() {
             <h4 className="text-sm font-bold text-white mb-4 uppercase tracking-wider">Support</h4>
             <ul className="space-y-2.5 text-sm text-stone-400">
               {["Help Center", "Safety", "Terms of Service", "Privacy Policy"].map((l) => (
-                <li key={l}><a href="#" className="hover:text-primary-light transition-colors">{l}</a></li>
+                <li key={l}><Link href="#" className="hover:text-primary-light transition-colors">{l}</Link></li>
               ))}
             </ul>
           </div>

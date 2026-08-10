@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   ArrowLeft,
   Camera,
@@ -9,23 +10,24 @@ import {
   X,
   Lightbulb,
   MapPin,
+  CheckCircle2,
   Phone,
-  BadgeCheck,
+  Shield,
   Star,
   Clock,
-  Shield,
-  ChevronRight,
-  CheckCircle2,
-  Zap,
-  Wrench,
-  Paintbrush,
-  Tv,
+  Smartphone,
+  Loader2,
+  type LucideIcon,
   Droplets,
+  Zap,
+  Tv,
+  Paintbrush,
   Wind,
   Hammer,
-  Smartphone,
-  type LucideIcon,
+  Wrench,
+  BadgeCheck,
 } from "lucide-react";
+import { supabase } from "../../lib/supabaseClient";
 
 /* ══════════════════════════════════════════════════════════════════
    TYPES & DATA
@@ -168,7 +170,7 @@ function PageHeader({ step }: { step: Step }) {
    STEP 1: REQUEST FORM
    ══════════════════════════════════════════════════════════════════ */
 
-function RequestForm({ onSubmit }: { onSubmit: () => void }) {
+function RequestForm({ onSubmit }: { onSubmit: (reqId: string | null) => void }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
@@ -202,9 +204,52 @@ function RequestForm({ onSubmit }: { onSubmit: () => void }) {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = () => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
     if (!validate()) return;
-    onSubmit();
+    setIsSubmitting(true);
+    let imageUrl = null;
+
+    try {
+      // 1. Upload photo if exists
+      if (photo) {
+        const fileName = `problem_${Date.now()}_${photo.name.replace(/\s/g, '_')}`;
+        const { error: uploadError } = await supabase.storage
+          .from("problem-photos")
+          .upload(fileName, photo);
+          
+        if (!uploadError) {
+          const { data: publicUrlData } = supabase.storage
+            .from("problem-photos")
+            .getPublicUrl(fileName);
+          imageUrl = publicUrlData.publicUrl;
+        } else {
+          console.warn("Photo upload error:", uploadError.message);
+        }
+      }
+
+      // 2. Insert into customer_requests
+      const { data, error } = await supabase
+        .from("customer_requests")
+        .insert([{
+          category: selectedCategory,
+          description: description,
+          image_url: imageUrl,
+          status: "open",
+        }])
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      setIsSubmitting(false);
+      onSubmit(data.id);
+    } catch (err) {
+      console.warn("Supabase insert failed, using demo mode");
+      setIsSubmitting(false);
+      onSubmit(null); // Demo mode
+    }
   };
 
   return (
@@ -393,12 +438,17 @@ function RequestForm({ onSubmit }: { onSubmit: () => void }) {
       {/* Submit */}
       <button
         onClick={handleSubmit}
+        disabled={isSubmitting}
         className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl
           bg-gradient-to-r from-accent to-accent-light text-white text-base font-bold shadow-lg
-          hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-[0.97]"
+          hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-[0.97] disabled:opacity-70 disabled:cursor-not-allowed"
       >
-        <Send className="w-5 h-5" />
-        Get Local Deals Now
+        {isSubmitting ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : (
+          <Send className="w-5 h-5" />
+        )}
+        {isSubmitting ? "Uploading..." : "Get Local Deals Now"}
       </button>
 
       <p className="text-center text-[10px] text-text-muted">
@@ -523,26 +573,63 @@ function ScanningState({ onComplete }: { onComplete: () => void }) {
    STEP 3: LIVE BIDS DASHBOARD
    ══════════════════════════════════════════════════════════════════ */
 
-function LiveBidsDashboard() {
+function LiveBidsDashboard({ requestId }: { requestId: string | null }) {
   const [acceptedBid, setAcceptedBid] = useState<number | null>(null);
-  const [visibleBids, setVisibleBids] = useState<number[]>([]);
+  const [visibleBids, setVisibleBids] = useState<Bid[]>([]);
 
   useEffect(() => {
-    // Stagger bid appearance
-    const timers = mockBids.map((bid, i) =>
-      setTimeout(() => {
-        setVisibleBids((prev) => [...prev, bid.id]);
-      }, i * 600)
-    );
-    return () => timers.forEach(clearTimeout);
-  }, []);
+    if (!requestId) {
+      // Demo mode
+      const timers = mockBids.map((bid, i) =>
+        setTimeout(() => {
+          setVisibleBids((prev) => [...prev, bid]);
+        }, i * 600)
+      );
+      return () => timers.forEach(clearTimeout);
+    }
+
+    // Real mode - subscribe to vendor_bids
+    const fetchBids = async () => {
+      const { data } = await supabase.from('vendor_bids').select('*').eq('request_id', requestId);
+      if (data && data.length > 0) {
+        // Map real bids to UI format
+        const realBids = data.map((b, i) => ({
+          ...mockBids[i % mockBids.length], // Borrow mock UI info for the vendor profile
+          id: b.id,
+          price: b.bid_amount,
+        }));
+        setVisibleBids(realBids);
+      }
+    };
+    
+    fetchBids();
+
+    const channel = supabase
+      .channel('realtime_bids')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'vendor_bids', filter: `request_id=eq.${requestId}` }, (payload) => {
+        const newBid = payload.new;
+        setVisibleBids((prev) => [
+          ...prev, 
+          {
+            ...mockBids[prev.length % mockBids.length],
+            id: newBid.id,
+            price: newBid.bid_amount,
+          }
+        ]);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [requestId]);
 
   const handleAccept = (bidId: number) => {
     setAcceptedBid(bidId);
   };
 
   if (acceptedBid) {
-    const bid = mockBids.find((b) => b.id === acceptedBid)!;
+    const bid = visibleBids.find((b) => b.id === acceptedBid) || mockBids[0];
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] animate-scale-in px-2">
         <div className="bg-card-bg rounded-3xl border border-card-border shadow-[var(--shadow-xl)] overflow-hidden w-full max-w-sm">
@@ -574,10 +661,10 @@ function LiveBidsDashboard() {
                 <Phone className="w-4 h-4" />
                 Call Expert
               </a>
-              <a href="/" className="flex items-center justify-center gap-2 py-3 rounded-xl bg-surface border border-border text-text-primary text-sm font-bold active:scale-95 transition-transform">
+              <Link href="/" className="flex items-center justify-center gap-2 py-3 rounded-xl bg-surface border border-border text-text-primary text-sm font-bold active:scale-95 transition-transform">
                 <ArrowLeft className="w-4 h-4" />
                 Go Home
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -602,12 +689,13 @@ function LiveBidsDashboard() {
       </div>
 
       {/* Lowest price highlight */}
-      {visibleBids.length === mockBids.length && (
+      {/* Lowest price highlight */}
+      {visibleBids.length > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 bg-emerald-50 rounded-2xl border border-emerald-100 animate-fade-in-up">
           <Zap className="w-5 h-5 text-emerald-600 flex-shrink-0" />
           <div>
             <p className="text-xs font-bold text-emerald-700">
-              Lowest bid: ₹{Math.min(...mockBids.map((b) => b.price))} by {mockBids.reduce((min, b) => (b.price < min.price ? b : min), mockBids[0]).name}
+              Lowest bid: ₹{Math.min(...visibleBids.map((b) => b.price))} by {visibleBids.reduce((min, b) => (b.price < min.price ? b : min), visibleBids[0]).name}
             </p>
             <p className="text-[10px] text-emerald-600">Below market estimate of ₹300–₹500</p>
           </div>
@@ -616,24 +704,21 @@ function LiveBidsDashboard() {
 
       {/* Bid Cards */}
       <div className="space-y-3">
-        {mockBids.map((bid, i) => {
-          const isVisible = visibleBids.includes(bid.id);
-          if (!isVisible) {
-            return (
-              <div key={bid.id} className="bg-card-bg rounded-2xl border border-card-border p-6 animate-pulse flex items-center justify-center">
-                <div className="flex items-center gap-2 text-text-muted">
-                  <Clock className="w-4 h-4 animate-spin" />
-                  <span className="text-xs font-medium">Receiving bid...</span>
-                </div>
-              </div>
-            );
-          }
-
-          const isLowest = bid.price === Math.min(...mockBids.map((b) => b.price));
+        {visibleBids.length === 0 && (
+          <div className="bg-card-bg rounded-2xl border border-card-border p-6 animate-pulse flex items-center justify-center">
+            <div className="flex items-center gap-2 text-text-muted">
+              <Clock className="w-4 h-4 animate-spin" />
+              <span className="text-xs font-medium">Waiting for experts to bid...</span>
+            </div>
+          </div>
+        )}
+        
+        {visibleBids.map((bid, i) => {
+          const isLowest = bid.price === Math.min(...visibleBids.map((b) => b.price));
 
           return (
             <div
-              key={bid.id}
+              key={`${bid.id}-${i}`}
               className={`bg-card-bg rounded-2xl border overflow-hidden animate-scale-in transition-all duration-300
                 ${isLowest ? "border-success/50 ring-1 ring-success/20" : "border-card-border"}
                 hover:shadow-lg hover:-translate-y-0.5`}
@@ -734,8 +819,10 @@ function LiveBidsDashboard() {
 
 export default function FixProblemPage() {
   const [step, setStep] = useState<Step>("form");
+  const [requestId, setRequestId] = useState<string | null>(null);
 
-  const handleFormSubmit = () => {
+  const handleFormSubmit = (id: string | null) => {
+    setRequestId(id);
     setStep("scanning");
   };
 
@@ -750,7 +837,7 @@ export default function FixProblemPage() {
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-5 sm:py-6">
         {step === "form" && <RequestForm onSubmit={handleFormSubmit} />}
         {step === "scanning" && <ScanningState onComplete={handleScanComplete} />}
-        {step === "bids" && <LiveBidsDashboard />}
+        {step === "bids" && <LiveBidsDashboard requestId={requestId} />}
       </main>
     </div>
   );

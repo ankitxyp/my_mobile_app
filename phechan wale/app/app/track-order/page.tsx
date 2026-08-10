@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
   ArrowLeft,
   Phone,
@@ -59,12 +60,12 @@ function LiveMap({ statusIndex }: { statusIndex: number }) {
 
       {/* Floating Header Buttons */}
       <div className="absolute top-0 inset-x-0 p-4 pt-safe flex justify-between items-start z-20">
-        <a
+        <Link
           href="/"
           className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center active:scale-95 transition-transform"
         >
           <ArrowLeft className="w-5 h-5 text-gray-800" />
-        </a>
+        </Link>
         <button className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-red-50 border border-red-200 shadow-sm active:scale-95 transition-transform">
           <ShieldAlert className="w-4 h-4 text-red-600" />
           <span className="text-xs font-bold text-red-600">SOS</span>

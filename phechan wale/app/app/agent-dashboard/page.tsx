@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import Link from "next/link";
 import { registerNewShop, triggerAutoCatalog, creditAgentWallet } from "../../lib/api/shopActions";
 import {
   ArrowLeft,
@@ -86,13 +87,13 @@ function AgentHeader({ totalEarned }: { totalEarned: number }) {
         <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Left */}
           <div className="flex items-center gap-2.5">
-            <a
+            <Link
               href="/"
               className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center hover:bg-surface transition-colors"
               title="Back to Home"
             >
               <ArrowLeft className="w-5 h-5 text-text-secondary" />
-            </a>
+            </Link>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-primary to-primary-light flex items-center justify-center shadow-sm">
                 <span className="text-white text-sm font-black">प</span>
@@ -342,7 +343,7 @@ function RegistrationForm({ onSuccess }: { onSuccess: () => void }) {
   const handleSubmit = async () => {
     if (!validate()) return;
     setSubmitting(true);
-    
+
     try {
       // 1. Register Shop in Supabase
       const newShop = await registerNewShop({
